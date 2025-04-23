@@ -95,7 +95,7 @@ uvicorn main:app --reload
 ```bash
 cd ../frontend
 npm install
-npm start
+npm run dev 
 ```
 The frontend will run at http://localhost:3000 (or another port if specified).
 
