@@ -139,3 +139,6 @@ Ensure prompt templates and retrieval logic are set up as described in the backe
 
 ## Contributions and feedback are welcome!
 If you have questions or want to improve the project, feel free to open an issue or pull request.
+
+## Author
+Developed by 3N-VOY (Alexander Xagoraris)
