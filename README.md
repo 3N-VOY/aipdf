@@ -121,8 +121,12 @@ Check API keys, Pinecone namespace, and server logs for details.
 Ensure prompt templates and retrieval logic are set up as described in the backend code.
 
 ## Screenshots
+### Main UI
+![PDF Q&A Assistant Screenshot](screenshots/mainui.png)
 
-![PDF Q&A Assistant Screenshot](screenshots/main-ui.png)
+### Chatting with the LLM
+![PDF Q&A Talking with the LLM Screenshot](screenshots/chatting_pdf.png)
+
 
 ## References
 * [LangChain Documentation](https://python.langchain.com/docs/introduction/)
@@ -135,3 +139,6 @@ Ensure prompt templates and retrieval logic are set up as described in the backe
 
 ## Contributions and feedback are welcome!
 If you have questions or want to improve the project, feel free to open an issue or pull request.
+
+## Author
+Developed by 3N-VOY (Alexander Xagoraris)
