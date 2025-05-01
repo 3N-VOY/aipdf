@@ -1,5 +1,3 @@
-
-
 from fastapi import FastAPI, UploadFile, HTTPException, Form, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -16,6 +14,7 @@ from langchain_pinecone import PineconeVectorStore
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain.chat_models import init_chat_model
 from pinecone import Pinecone, ServerlessSpec
+import json
 
 # Load environment variables
 load_dotenv()
@@ -76,6 +75,16 @@ def create_index_if_not_exists():
             spec=ServerlessSpec(cloud="aws", region="us-east-1")
         )
 
+# Check if namespace exists
+def namespace_exists(index, namespace):
+    try:
+        stats = index.describe_index_stats()
+        namespaces = stats.get("namespaces", {})
+        return namespace in namespaces
+    except Exception as e:
+        print(f"Error checking namespace existence: {str(e)}")
+        return False
+
 # Initialize embeddings model
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 
@@ -126,16 +135,16 @@ async def upload_pdf(file: UploadFile = File(...)):
         # Connect to Pinecone index
         index = pc.Index(PINECONE_INDEX_NAME)
 
-        # Try to delete existing namespace if it exists
-        try:
-            # For Pinecone API v2025-04 and later, use:
-            # index.delete(namespace=CURRENT_NAMESPACE, delete_all=True)
-            # For earlier versions:
-            index.delete(delete_all=True, namespace=CURRENT_NAMESPACE)
-            print(f"Cleared namespace {CURRENT_NAMESPACE} in Pinecone index")
-        except Exception as e:
-            # If namespace doesn't exist yet, that's fine
-            print(f"Note: Namespace {CURRENT_NAMESPACE} doesn't exist yet or couldn't be deleted: {str(e)}")
+        # Only try to delete the namespace if it exists
+        if namespace_exists(index, CURRENT_NAMESPACE):
+            try:
+                index.delete(delete_all=True, namespace=CURRENT_NAMESPACE)
+                print(f"Cleared namespace {CURRENT_NAMESPACE} in Pinecone index")
+            except Exception as e:
+                # Log the error but continue processing
+                print(f"Warning: Failed to delete namespace {CURRENT_NAMESPACE}: {str(e)}")
+        else:
+            print(f"Namespace {CURRENT_NAMESPACE} doesn't exist yet, skipping deletion")
 
         # Store in Pinecone with namespace
         vector_store = PineconeVectorStore(
@@ -183,10 +192,6 @@ async def ask_question(request: QuestionRequest):
         results = vector_store.similarity_search(request.question, k=5)
         # print(f"Retrieved {len(results)} chunks for question from namespace: {CURRENT_NAMESPACE}")
 
-        # Log retrieved chunks for debugging
-        # for i, doc in enumerate(results):
-        #     print(f"Chunk {i+1} metadata: {doc.metadata}")
-        #     print(f"Chunk {i+1} content preview: {doc.page_content[:100]}...")
 
         if not results:
             return QuestionResponse(
@@ -204,12 +209,11 @@ async def ask_question(request: QuestionRequest):
         context = "\n\n" + "\n\n".join(context_parts)
 
         # Enhanced system prompt
-        system_message = """You are a PDF document assistant. You provide answers based on the PDF document uploaded.
-CRITICAL INSTRUCTIONS:
-1. ONLY use information from the provided document to answer the question
-2. If the answer cannot be found in the document, respond with EXACTLY: "I don't have enough information in the document to answer this question."
-3. NEVER use prior knowledge or make up information
-5. Format your answer clearly and concisely"""
+        system_message = """
+        You have access to a PDF document. Your task is to answer the user's questions strictly based on the content of the PDF. 
+        If a question cannot be answered from the PDF, respond with: "The answer is not found in the document." 
+        Be accurate, concise, and reference relevant sections or quotes when possible. Wait for the user's question.
+        """
 
         # Improved prompt format
         messages = [
